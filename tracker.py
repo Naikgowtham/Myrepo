@@ -1,10 +1,11 @@
 import os
+import time
 import requests
 import urllib.parse
 import pandas as pd
-from google import genai  # Upgraded SDK import
+from google import genai
 
-# 1. Fetch your target list directly from your Google Sheet
+# 1. Fetch data from your Google Sheet
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1_x_nW-3ppImt2CzdtPNh3KAnOjSCMuzXhbSUxZUYbqc/export?format=csv"
 
 try:
@@ -13,11 +14,13 @@ except Exception as e:
     print(f"Error reading Google Sheet: {e}")
     exit(1)
 
-# 2. Configure the modern GenAI Client
-# It automatically picks up your GEMINI_API_KEY environment variable
+# 2. Configure GenAI Client
 client = genai.Client()
 
-compiled_report = "📅 **Daily Exam Updates & News Report** 📅\n\n"
+# Active, live 2026 Model Fallback Sequence
+MODELS_TO_TRY = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash']
+
+compiled_report = "📅 *Daily Exam Updates & News Report* 📅\n\n"
 updates_found = False
 
 for index, row in df.iterrows():
@@ -40,10 +43,9 @@ for index, row in df.iterrows():
     except Exception:
         external_news_text = "⚠️ Could not pull Google News stream."
         
-    # 3. Prompting Gemini
     prompt = f"""
     You are an AI assistant tracking updates for the exam: '{name}'.
-    Analyze these two raw data snapshots:
+    Analyze these two data snapshots:
     
     SOURCE 1: Official Portal text ({official_url})
     ---
@@ -59,34 +61,49 @@ for index, row in df.iterrows():
     Provide a unified summary for '{name}'.
     - Extract any new active timelines (Application dates, Exam dates, Results, Admit cards).
     - Mention any crucial news or changes from trusted news outlets.
-    - CRITICAL: Keep your response incredibly concise (maximum 3-4 bullet points, under 400 characters total). Telegram messages have strict character limits.
-    - If absolutely no new application dates, changes, or major news are visible in either source, reply with exactly: 'No new updates.'
+    - CRITICAL FORMATTING RULE: Write your output in absolute PLAIN TEXT. Do NOT use asterisks (*), underscores (_), brackets, or any markdown symbols whatsoever. Use simple hyphens (-) for bullet points.
+    - Keep it under 400 characters.
+    - If absolutely no new application dates, changes, or major news are visible, reply with exactly: 'No new updates.'
     """
     
-    try:
-        # Using the upgraded SDK call format and a modern model
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        ai_response = response.text.strip()
-        
-        if "no new updates" not in ai_response.lower():
-            compiled_report += f"🔹 **{name}**\n{ai_response}\n\n"
-            updates_found = True
-    except Exception as e:
-        print(f"Error processing {name}: {e}")
+    ai_response = None
+    
+    # Fallback Execution Loop
+    for model_name in MODELS_TO_TRY:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            ai_response = response.text.strip()
+            if ai_response:
+                print(f"✅ Successfully extracted data for {name} using {model_name}")
+                break  
+        except Exception as e:
+            print(f"⚠️ {model_name} failed or overloaded for {name}. Shifting to next fallback...")
+            time.sleep(2)  
+            
+    if not ai_response:
+        print(f"❌ All active AI models failed or were overloaded for {name}.")
+        continue
 
-# 4. Ship it to Telegram
+    if "no new updates" not in ai_response.lower():
+        sanitized_response = ai_response.replace("*", "").replace("_", "").replace("`", "")
+        compiled_report += f"🔹 *{name}*\n{sanitized_response}\n\n"
+        updates_found = True
+
+# 4. Ship clean report to Telegram
 if updates_found:
     telegram_url = f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/sendMessage"
     payload = {
         "chat_id": os.environ["TELEGRAM_CHAT_ID"],
         "text": compiled_report,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown"  
     }
     r = requests.post(telegram_url, data=payload)
     if r.status_code != 200:
         print(f"Telegram failed to send. Error: {r.text}")
+    else:
+        print("🚀 Report successfully dispatched to Telegram!")
 else:
     print("All quiet today! No new exam updates discovered across portals or news feeds.")
