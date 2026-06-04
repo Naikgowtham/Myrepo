@@ -45,25 +45,26 @@ for index, row in df.iterrows():
         
     prompt = f"""
     You are an AI assistant tracking updates for the exam: '{name}'.
-    Analyze these two data snapshots:
+    Analyze these two data snapshots to find current information or future projections for the 2026 cycle:
     
     SOURCE 1: Official Portal text ({official_url})
     ---
     {official_text}
     ---
     
-    SOURCE 2: Recent news headlines RSS
+    SOURCE 2: Recent news headlines and calendar mentions RSS
     ---
     {external_news_text}
     ---
     
     Task:
-    Provide a unified summary for '{name}'.
-    - Extract any new active timelines (Application dates, Exam dates, Results, Admit cards).
-    - Mention any crucial news or changes from trusted news outlets.
+    Provide a concise, predictive summary for '{name}' focusing strictly on the 2026 cycle.
+    - Explicitly extract and state the EXAM DATES and NOTIFICATION TIMELINES for 2026, even if they are marked as tentative, expected, or rumored.
+    - If exact dates are not available, state the expected month or quarter (e.g., "Expected in August 2026").
+    - Highlight any active application dates or recent result declarations.
     - CRITICAL FORMATTING RULE: Write your output in absolute PLAIN TEXT. Do NOT use asterisks (*), underscores (_), brackets, or any markdown symbols whatsoever. Use simple hyphens (-) for bullet points.
-    - Keep it under 400 characters.
-    - If absolutely no new application dates, changes, or major news are visible, reply with exactly: 'No new updates.'
+    - Keep it crisp and under 400 characters total.
+    - Only reply with 'No new updates' if there is absolutely no mention of past, present, or tentative future dates for this exam in the text.
     """
     
     ai_response = None
@@ -89,7 +90,9 @@ for index, row in df.iterrows():
 
     if "no new updates" not in ai_response.lower():
         sanitized_response = ai_response.replace("*", "").replace("_", "").replace("`", "")
-        compiled_report += f"🔹 *{name}*\n{sanitized_response}\n\n"
+        
+        # CHANGED HERE: Appends a clean, clickable hyperlink destination directly below the text block
+        compiled_report += f"🔹 *{name}*\n{sanitized_response}\n🔗 *Source:* {official_url}\n\n"
         updates_found = True
 
 # 4. Ship clean report to Telegram
