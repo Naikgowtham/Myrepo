@@ -27,7 +27,7 @@ for index, row in df.iterrows():
     name = str(row['Exam Name']).strip()
     official_url = str(row['Website URL']).strip()
     
-    encoded_query = urllib.parse.quote(f"{name} exam updates news")
+    encoded_query = urllib.parse.quote(f"{name} exam updates news 2026")
     google_news_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-IN&gl=IN&ceid=IN:en"
     
     official_text = ""
@@ -43,28 +43,29 @@ for index, row in df.iterrows():
     except Exception:
         external_news_text = "⚠️ Could not pull Google News stream."
         
+    # Strictly commanding a clean layout with zero markdown symbols to prevent Telegram breakdown
     prompt = f"""
-    You are an AI assistant tracking updates for the exam: '{name}'.
-    Analyze these two data snapshots to find current information or future projections for the 2026 cycle:
+    You are an AI assistant tracking specific timelines for the exam: '{name}'.
+    Analyze these two data snapshots for any active or tentative details concerning the 2026/2027 cycle:
     
     SOURCE 1: Official Portal text ({official_url})
     ---
     {official_text}
     ---
     
-    SOURCE 2: Recent news headlines and calendar mentions RSS
+    SOURCE 2: Recent news headlines RSS
     ---
     {external_news_text}
     ---
     
     Task:
-    Provide a concise, predictive summary for '{name}' focusing strictly on the 2026 cycle.
-    - Explicitly extract and state the EXAM DATES and NOTIFICATION TIMELINES for 2026, even if they are marked as tentative, expected, or rumored.
-    - If exact dates are not available, state the expected month or quarter (e.g., "Expected in August 2026").
-    - Highlight any active application dates or recent result declarations.
-    - CRITICAL FORMATTING RULE: Write your output in absolute PLAIN TEXT. Do NOT use asterisks (*), underscores (_), brackets, or any markdown symbols whatsoever. Use simple hyphens (-) for bullet points.
-    - Keep it crisp and under 400 characters total.
-    - Only reply with 'No new updates' if there is absolutely no mention of past, present, or tentative future dates for this exam in the text.
+    Extract the timeline specifics and output EXACTLY the following template. Do NOT use any asterisks (*), underscores (_), or markdown text style formatting in your response. Fill out the text using raw characters only.
+    
+    📅 Notification: [List specific date, tentative month, or "Expected June 2026" etc. If completely unknown, write TBA]
+    ✍️ Exam Dates: [List exact dates, prelims/mains months, or tentative schedule details. If completely unknown, write TBA]
+    📰 Latest News: [Provide a brief 1-2 sentence raw text update of recent alerts, results, patterns, or notification releases]
+    
+    CRITICAL: If absolutely no reference to timelines or current status exists in the data, reply with exactly: 'No new updates.'
     """
     
     ai_response = None
@@ -89,9 +90,10 @@ for index, row in df.iterrows():
         continue
 
     if "no new updates" not in ai_response.lower():
+        # Strip out any lingering markdown symbols the AI might have accidentally added
         sanitized_response = ai_response.replace("*", "").replace("_", "").replace("`", "")
         
-        # CHANGED HERE: Appends a clean, clickable hyperlink destination directly below the text block
+        # Assemble the formatted block cleanly inside the Python ecosystem
         compiled_report += f"🔹 *{name}*\n{sanitized_response}\n🔗 *Source:* {official_url}\n\n"
         updates_found = True
 
@@ -107,6 +109,6 @@ if updates_found:
     if r.status_code != 200:
         print(f"Telegram failed to send. Error: {r.text}")
     else:
-        print("🚀 Report successfully dispatched to Telegram!")
+        print("🚀 Structured report successfully dispatched to Telegram!")
 else:
     print("All quiet today! No new exam updates discovered across portals or news feeds.")
