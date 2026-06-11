@@ -3,7 +3,7 @@ name: Daily Exam Tracker
 on:
   schedule:
     # 9:00 AM Indian Standard Time (IST) is 3:30 AM Universal Time (UTC)
-    - cron: '30 3 * * *'
+    - cron: '14 3 * * *'
   workflow_dispatch: # Allows you to manually click "Run workflow" anytime to test
 
 jobs:
